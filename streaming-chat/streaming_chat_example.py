@@ -1,8 +1,8 @@
 """
 Textual Streaming Chat - Complete Working Example
 
-This demonstrates smooth, non-blocking streaming markdown in a chat interface.
-Based on the architecture of Toad and Textual 4.0+ features.
+This demonstrates smooth, non-blocking streaming markdown in a chat interface,
+with message-by-message keyboard navigation (like Toad).
 
 Requirements:
     pip install "textual>=4.0.0"
@@ -18,6 +18,18 @@ Key Features:
     - container.anchor() for smart scroll management
     - @work decorator for non-blocking LLM calls
     - Incremental markdown parsing (O(1) per token, not O(N))
+    - Message-by-message keyboard navigation (j/k or arrows)
+
+Keyboard Navigation:
+    - j / Down: Next message
+    - k / Up: Previous message
+    - g: Jump to first message
+    - G: Jump to last message
+    - c: Copy focused assistant message
+    - Escape: Return focus to input
+    - Tab: Cycle through all focusable elements
+    - Ctrl+X: Cancel generation
+    - Ctrl+L: Clear chat
 """
 
 from textual.app import App, ComposeResult
@@ -33,7 +45,10 @@ import asyncio
 # =============================================================================
 
 class UserMessage(Static):
-    """A user message bubble aligned to the right."""
+    """A user message bubble aligned to the right. Focusable for keyboard navigation."""
+    
+    # Enable focus for keyboard navigation through messages
+    can_focus = True
     
     DEFAULT_CSS = """
     UserMessage {
@@ -43,11 +58,46 @@ class UserMessage(Static):
         padding: 1 2;
         border: round $primary;
     }
+    
+    UserMessage:focus {
+        border: double $primary;
+        background: $primary 30%;
+    }
     """
+    
+    BINDINGS = [
+        Binding("k,up", "focus_prev", "Previous message", show=False),
+        Binding("j,down", "focus_next", "Next message", show=False),
+    ]
+    
+    def action_focus_prev(self) -> None:
+        """Navigate to previous message."""
+        siblings = list(self.parent.query("UserMessage, AssistantMessage"))
+        try:
+            idx = siblings.index(self)
+            if idx > 0:
+                siblings[idx - 1].focus()
+                siblings[idx - 1].scroll_visible()
+        except (ValueError, IndexError):
+            pass
+    
+    def action_focus_next(self) -> None:
+        """Navigate to next message."""
+        siblings = list(self.parent.query("UserMessage, AssistantMessage"))
+        try:
+            idx = siblings.index(self)
+            if idx < len(siblings) - 1:
+                siblings[idx + 1].focus()
+                siblings[idx + 1].scroll_visible()
+        except (ValueError, IndexError):
+            pass
 
 
 class AssistantMessage(Markdown):
-    """An assistant message that renders streaming markdown."""
+    """An assistant message that renders streaming markdown. Focusable for navigation."""
+    
+    # Enable focus for keyboard navigation through messages
+    can_focus = True
     
     DEFAULT_CSS = """
     AssistantMessage {
@@ -57,7 +107,44 @@ class AssistantMessage(Markdown):
         padding: 1 2;
         border: round $secondary;
     }
+    
+    AssistantMessage:focus {
+        border: double $primary;
+        background: $primary 5%;
+    }
     """
+    
+    BINDINGS = [
+        Binding("k,up", "focus_prev", "Previous message", show=False),
+        Binding("j,down", "focus_next", "Next message", show=False),
+        Binding("c", "copy_content", "Copy"),
+    ]
+    
+    def action_focus_prev(self) -> None:
+        """Navigate to previous message."""
+        siblings = list(self.parent.query("UserMessage, AssistantMessage"))
+        try:
+            idx = siblings.index(self)
+            if idx > 0:
+                siblings[idx - 1].focus()
+                siblings[idx - 1].scroll_visible()
+        except (ValueError, IndexError):
+            pass
+    
+    def action_focus_next(self) -> None:
+        """Navigate to next message."""
+        siblings = list(self.parent.query("UserMessage, AssistantMessage"))
+        try:
+            idx = siblings.index(self)
+            if idx < len(siblings) - 1:
+                siblings[idx + 1].focus()
+                siblings[idx + 1].scroll_visible()
+        except (ValueError, IndexError):
+            pass
+    
+    def action_copy_content(self) -> None:
+        """Copy message content (placeholder - implement with pyperclip)."""
+        self.app.notify(f"Would copy {len(self.source)} characters")
 
 
 # =============================================================================
@@ -112,6 +199,9 @@ class StreamingChatApp(App):
         Binding("ctrl+c", "quit", "Quit"),
         Binding("ctrl+x", "cancel", "Cancel"),
         Binding("ctrl+l", "clear", "Clear chat"),
+        Binding("g", "first_message", "First msg"),
+        Binding("G", "last_message", "Last msg"),
+        Binding("escape", "focus_input", "To input"),
     ]
     
     def __init__(self):
@@ -332,6 +422,24 @@ That's the end of this demo! Try typing another message.
             ))
         
         self.run_worker(do_clear())
+    
+    def action_first_message(self) -> None:
+        """Jump to the first message."""
+        messages = self.query("UserMessage, AssistantMessage")
+        if messages:
+            messages.first().focus()
+            messages.first().scroll_visible()
+    
+    def action_last_message(self) -> None:
+        """Jump to the last message."""
+        messages = self.query("UserMessage, AssistantMessage")
+        if messages:
+            messages.last().focus()
+            messages.last().scroll_visible()
+    
+    def action_focus_input(self) -> None:
+        """Return focus to the input field."""
+        self.query_one("#prompt", Input).focus()
 
 
 # =============================================================================
