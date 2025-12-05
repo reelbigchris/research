@@ -5,8 +5,8 @@ This demonstrates smooth, non-blocking streaming markdown in a chat interface,
 with message-by-message keyboard navigation (like Toad).
 
 Requirements:
-    pip install "textual>=4.0.0"
-    
+    pip install "textual>=4.0.0" pyperclip
+
 For real LLM integration, also install your client:
     pip install anthropic  # or openai, httpx, etc.
 
@@ -24,10 +24,11 @@ Keyboard Navigation:
     - j / Down: Next message
     - k / Up: Previous message
     - g: Jump to first message
-    - G: Jump to last message
+    - G: Jump to last message (also scrolls to bottom)
     - c: Copy focused assistant message
     - Escape: Return focus to input
     - Tab: Cycle through all focusable elements
+    - Ctrl+D: From input, select most recent message
     - Ctrl+X: Cancel generation
     - Ctrl+L: Clear chat
 """
@@ -38,6 +39,12 @@ from textual.widgets import Markdown, Input, Static, Footer, Header
 from textual.binding import Binding
 from textual import work
 import asyncio
+
+try:
+    import pyperclip
+    CLIPBOARD_AVAILABLE = True
+except ImportError:
+    CLIPBOARD_AVAILABLE = False
 
 
 # =============================================================================
@@ -54,11 +61,11 @@ class UserMessage(Static):
     UserMessage {
         background: $primary 20%;
         color: $text;
-        margin: 1 1 1 10;
+        margin: 1 10 1 1;
         padding: 1 2;
         border: round $primary;
     }
-    
+
     UserMessage:focus {
         border: double $primary;
         background: $primary 30%;
@@ -143,8 +150,16 @@ class AssistantMessage(Markdown):
             pass
     
     def action_copy_content(self) -> None:
-        """Copy message content (placeholder - implement with pyperclip)."""
-        self.app.notify(f"Would copy {len(self.source)} characters")
+        """Copy message content to clipboard."""
+        if not CLIPBOARD_AVAILABLE:
+            self.app.notify("pyperclip not installed. Run: pip install pyperclip", severity="warning")
+            return
+
+        try:
+            pyperclip.copy(self.source)
+            self.app.notify(f"Copied {len(self.source)} characters to clipboard")
+        except Exception as e:
+            self.app.notify(f"Failed to copy: {e}", severity="error")
 
 
 # =============================================================================
@@ -201,6 +216,7 @@ class StreamingChatApp(App):
         Binding("ctrl+l", "clear", "Clear chat"),
         Binding("g", "first_message", "First msg"),
         Binding("G", "last_message", "Last msg"),
+        Binding("ctrl+d", "select_recent", "Recent msg"),
         Binding("escape", "focus_input", "To input"),
     ]
     
@@ -431,15 +447,25 @@ That's the end of this demo! Try typing another message.
             messages.first().scroll_visible()
     
     def action_last_message(self) -> None:
-        """Jump to the last message."""
+        """Jump to the last message and scroll to bottom."""
         messages = self.query("UserMessage, AssistantMessage")
         if messages:
             messages.last().focus()
             messages.last().scroll_visible()
+        # Also scroll the container to the bottom
+        chat = self.query_one("#chat-container", VerticalScroll)
+        chat.scroll_end(animate=False)
     
     def action_focus_input(self) -> None:
         """Return focus to the input field."""
         self.query_one("#prompt", Input).focus()
+
+    def action_select_recent(self) -> None:
+        """Select the most recent message (useful from input to start navigating)."""
+        messages = self.query("UserMessage, AssistantMessage")
+        if messages:
+            messages.last().focus()
+            messages.last().scroll_visible()
 
 
 # =============================================================================
