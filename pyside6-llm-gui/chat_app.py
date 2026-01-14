@@ -8,6 +8,8 @@ Uses the Nord color scheme.
 import sys
 import re
 import markdown
+from markdown.extensions.codehilite import CodeHiliteExtension
+from pygments.formatters import HtmlFormatter
 from PySide6.QtWidgets import (
     QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
     QTextEdit, QPushButton, QScrollArea, QLabel, QFrame, QCheckBox,
@@ -43,13 +45,121 @@ NORD = {
 
 
 class MarkdownRenderer:
-    """Robust Markdown renderer that handles syntax errors gracefully."""
+    """Robust Markdown renderer with syntax highlighting that handles errors gracefully."""
 
     def __init__(self):
-        self.md = markdown.Markdown(extensions=['fenced_code', 'tables', 'nl2br'])
+        # Configure CodeHilite extension with Nord-themed colors
+        self.md = markdown.Markdown(
+            extensions=[
+                CodeHiliteExtension(
+                    linenums=False,
+                    css_class='highlight',
+                    guess_lang=True
+                ),
+                'fenced_code',
+                'tables',
+                'nl2br'
+            ]
+        )
+
+        # Generate Nord-themed Pygments CSS
+        self.pygments_css = self._generate_nord_pygments_css()
+
+    def _generate_nord_pygments_css(self):
+        """Generate Nord-themed CSS for Pygments syntax highlighting."""
+        return f"""
+            /* Pygments Nord Theme for Code Highlighting */
+            .highlight {{
+                background-color: {NORD['nord0']};
+                border-radius: 6px;
+            }}
+            .highlight pre {{
+                margin: 0;
+                padding: 12px;
+                background-color: {NORD['nord0']};
+            }}
+
+            /* Syntax highlighting colors */
+            .highlight .hll {{ background-color: {NORD['nord2']} }}  /* Line highlight */
+            .highlight .c {{ color: {NORD['nord3']}; font-style: italic }}  /* Comment */
+            .highlight .err {{ color: {NORD['nord11']}; }}  /* Error */
+            .highlight .k {{ color: {NORD['nord9']}; font-weight: bold }}  /* Keyword */
+            .highlight .o {{ color: {NORD['nord9']} }}  /* Operator */
+            .highlight .cm {{ color: {NORD['nord3']}; font-style: italic }}  /* Comment.Multiline */
+            .highlight .cp {{ color: {NORD['nord9']} }}  /* Comment.Preproc */
+            .highlight .c1 {{ color: {NORD['nord3']}; font-style: italic }}  /* Comment.Single */
+            .highlight .cs {{ color: {NORD['nord3']}; font-style: italic }}  /* Comment.Special */
+
+            .highlight .gd {{ color: {NORD['nord11']} }}  /* Generic.Deleted */
+            .highlight .ge {{ font-style: italic }}  /* Generic.Emph */
+            .highlight .gr {{ color: {NORD['nord11']} }}  /* Generic.Error */
+            .highlight .gh {{ color: {NORD['nord8']}; font-weight: bold }}  /* Generic.Heading */
+            .highlight .gi {{ color: {NORD['nord14']} }}  /* Generic.Inserted */
+            .highlight .go {{ color: {NORD['nord4']} }}  /* Generic.Output */
+            .highlight .gp {{ color: {NORD['nord4']} }}  /* Generic.Prompt */
+            .highlight .gs {{ font-weight: bold }}  /* Generic.Strong */
+            .highlight .gu {{ color: {NORD['nord8']}; font-weight: bold }}  /* Generic.Subheading */
+            .highlight .gt {{ color: {NORD['nord11']} }}  /* Generic.Traceback */
+
+            .highlight .kc {{ color: {NORD['nord9']}; font-weight: bold }}  /* Keyword.Constant */
+            .highlight .kd {{ color: {NORD['nord9']}; font-weight: bold }}  /* Keyword.Declaration */
+            .highlight .kn {{ color: {NORD['nord9']}; font-weight: bold }}  /* Keyword.Namespace */
+            .highlight .kp {{ color: {NORD['nord9']}; font-weight: bold }}  /* Keyword.Pseudo */
+            .highlight .kr {{ color: {NORD['nord9']}; font-weight: bold }}  /* Keyword.Reserved */
+            .highlight .kt {{ color: {NORD['nord9']}; font-weight: bold }}  /* Keyword.Type */
+
+            .highlight .m {{ color: {NORD['nord15']} }}  /* Literal.Number */
+            .highlight .s {{ color: {NORD['nord14']} }}  /* Literal.String */
+
+            .highlight .na {{ color: {NORD['nord8']} }}  /* Name.Attribute */
+            .highlight .nb {{ color: {NORD['nord8']} }}  /* Name.Builtin */
+            .highlight .nc {{ color: {NORD['nord7']} }}  /* Name.Class */
+            .highlight .no {{ color: {NORD['nord15']} }}  /* Name.Constant */
+            .highlight .nd {{ color: {NORD['nord10']} }}  /* Name.Decorator */
+            .highlight .ni {{ color: {NORD['nord7']} }}  /* Name.Entity */
+            .highlight .ne {{ color: {NORD['nord11']} }}  /* Name.Exception */
+            .highlight .nf {{ color: {NORD['nord8']} }}  /* Name.Function */
+            .highlight .nl {{ color: {NORD['nord7']} }}  /* Name.Label */
+            .highlight .nn {{ color: {NORD['nord7']} }}  /* Name.Namespace */
+            .highlight .nt {{ color: {NORD['nord9']} }}  /* Name.Tag */
+            .highlight .nv {{ color: {NORD['nord4']} }}  /* Name.Variable */
+            .highlight .nx {{ color: {NORD['nord4']} }}  /* Name.Other */
+
+            .highlight .ow {{ color: {NORD['nord9']}; font-weight: bold }}  /* Operator.Word */
+            .highlight .w {{ color: {NORD['nord4']} }}  /* Text.Whitespace */
+
+            .highlight .mb {{ color: {NORD['nord15']} }}  /* Literal.Number.Bin */
+            .highlight .mf {{ color: {NORD['nord15']} }}  /* Literal.Number.Float */
+            .highlight .mh {{ color: {NORD['nord15']} }}  /* Literal.Number.Hex */
+            .highlight .mi {{ color: {NORD['nord15']} }}  /* Literal.Number.Integer */
+            .highlight .mo {{ color: {NORD['nord15']} }}  /* Literal.Number.Oct */
+
+            .highlight .sa {{ color: {NORD['nord14']} }}  /* Literal.String.Affix */
+            .highlight .sb {{ color: {NORD['nord14']} }}  /* Literal.String.Backtick */
+            .highlight .sc {{ color: {NORD['nord14']} }}  /* Literal.String.Char */
+            .highlight .dl {{ color: {NORD['nord14']} }}  /* Literal.String.Delimiter */
+            .highlight .sd {{ color: {NORD['nord3']}; font-style: italic }}  /* Literal.String.Doc */
+            .highlight .s2 {{ color: {NORD['nord14']} }}  /* Literal.String.Double */
+            .highlight .se {{ color: {NORD['nord13']} }}  /* Literal.String.Escape */
+            .highlight .sh {{ color: {NORD['nord14']} }}  /* Literal.String.Heredoc */
+            .highlight .si {{ color: {NORD['nord13']} }}  /* Literal.String.Interpol */
+            .highlight .sx {{ color: {NORD['nord14']} }}  /* Literal.String.Other */
+            .highlight .sr {{ color: {NORD['nord13']} }}  /* Literal.String.Regex */
+            .highlight .s1 {{ color: {NORD['nord14']} }}  /* Literal.String.Single */
+            .highlight .ss {{ color: {NORD['nord7']} }}  /* Literal.String.Symbol */
+
+            .highlight .bp {{ color: {NORD['nord8']} }}  /* Name.Builtin.Pseudo */
+            .highlight .fm {{ color: {NORD['nord8']} }}  /* Name.Function.Magic */
+            .highlight .vc {{ color: {NORD['nord4']} }}  /* Name.Variable.Class */
+            .highlight .vg {{ color: {NORD['nord4']} }}  /* Name.Variable.Global */
+            .highlight .vi {{ color: {NORD['nord4']} }}  /* Name.Variable.Instance */
+            .highlight .vm {{ color: {NORD['nord4']} }}  /* Name.Variable.Magic */
+
+            .highlight .il {{ color: {NORD['nord15']} }}  /* Literal.Number.Integer.Long */
+        """
 
     def render(self, text):
-        """Render markdown to HTML, handling errors gracefully."""
+        """Render markdown to HTML with syntax highlighting, handling errors gracefully."""
         try:
             # Reset the markdown parser
             self.md.reset()
@@ -119,6 +229,8 @@ class MarkdownRenderer:
                 ul, ol {{
                     padding-left: 24px;
                 }}
+
+                {self.pygments_css}
             </style>
             {html}
             """
@@ -628,28 +740,67 @@ class MainWindow(QMainWindow):
 This is a **modern, minimalist** chat interface built with PySide6 and styled with the Nord color scheme.
 
 ## Features:
-- 🎨 Beautiful Nord-themed design
-- 📝 Robust Markdown rendering with syntax highlighting
-- ⚡ Streaming message support
+- 🎨 Beautiful Nord-themed design with carefully chosen colors
+- 📝 Robust Markdown rendering with **Pygments syntax highlighting**
+- ⚡ Streaming message support with animated indicators
 - 📋 Copy individual messages or entire conversations
 - ✅ Select multiple messages at once
 - 🔄 Regenerate and view original responses
 - ⌨️ Keyboard shortcuts (Ctrl+Enter to send)
 
-Try sending a message with some **markdown** formatting!
+## Syntax Highlighting Demo
 
+The interface now features full **Pygments-powered syntax highlighting** with Nord-themed colors!
+
+### Python Example:
 ```python
-def hello_world():
-    print("Hello from the chat interface!")
+class MarkdownRenderer:
+    def __init__(self):
+        self.md = markdown.Markdown(extensions=['codehilite', 'tables'])
+
+    def render(self, text):
+        """Render markdown to HTML with syntax highlighting."""
+        try:
+            return self.md.convert(text)
+        except Exception as e:
+            return f"<pre>{text}</pre>"
 ```
 
-> This is a blockquote. Markdown tables and lists also work!
+### JavaScript Example:
+```javascript
+async function fetchLLMResponse(message) {
+    const response = await fetch('/api/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ message })
+    });
+    return await response.json();
+}
+```
 
-| Feature | Status |
-|---------|--------|
-| Streaming | ✅ |
-| Markdown | ✅ |
-| Nord Theme | ✅ |
+### Rust Example:
+```rust
+fn main() {
+    let numbers = vec![1, 2, 3, 4, 5];
+    let sum: i32 = numbers.iter().sum();
+    println!("The sum is: {}", sum);
+}
+```
+
+> **Note**: The syntax highlighter automatically detects the language and applies appropriate Nord-themed colors!
+
+## Markdown Features
+
+| Feature | Support | Description |
+|---------|---------|-------------|
+| Headers | ✅ | H1 through H6 |
+| Code Blocks | ✅ | With syntax highlighting |
+| Tables | ✅ | Full GFM tables |
+| Lists | ✅ | Ordered and unordered |
+| Blockquotes | ✅ | Nested quotes supported |
+| Links | ✅ | Inline and reference |
+
+Try sending a message with code blocks in different languages to see the highlighting in action!
 """
         self.chat_area.add_message(welcome, is_user=False)
 
@@ -700,47 +851,117 @@ def hello_world():
         responses = [
             f"""Thank you for your message! You said: "{user_text[:50]}..."
 
-I'm a **mock LLM** response demonstrating the streaming capabilities of this interface.
+I'm a **mock LLM** response demonstrating the streaming capabilities and **syntax highlighting** of this interface.
 
 Here are some features I can show:
 
 1. **Markdown formatting** with *italic* and **bold** text
-2. Code blocks:
+2. **Syntax-highlighted code blocks** with Nord colors:
+
 ```python
-def process_message(text):
-    return f"Processed: {{text}}"
+# Python with Nord-themed syntax highlighting
+def process_message(text: str) -> dict:
+    '''Process user message and return response.'''
+    result = {{
+        'status': 'success',
+        'message': f"Processed: {{text}}",
+        'timestamp': datetime.now()
+    }}
+    return result
 ```
+
 3. Lists and quotes
 4. Even incomplete markdown like `unclosed code or **bold
 
 The interface handles all of this gracefully!""",
 
-            f"""Interesting! Let me respond to "{user_text[:40]}..."
+            f"""Interesting! Let me respond to "{user_text[:40]}..." with some **syntax-highlighted examples**!
 
 ## Key Points:
-- This interface uses the Nord color scheme
-- Messages stream in word by word
-- Markdown is rendered robustly
+- This interface uses the **Nord color scheme** throughout
+- Messages stream in word by word with smooth animations
+- **Pygments** provides professional syntax highlighting
 - You can copy messages individually or all at once
 
-> "The best interfaces are invisible until you need them."
+> "Good code is its own best documentation." - Steve McConnell
 
-### Technical Details
-The streaming is simulated using Qt timers, but in a real implementation you would connect to an actual LLM API.
+### Technical Implementation
 
-```javascript
-// Example API call
-fetch('/api/chat', {{
-  method: 'POST',
-  body: JSON.stringify({{ message: userText }})
-}})
+The markdown renderer uses Python-Markdown with CodeHilite:
+
+```python
+from markdown.extensions.codehilite import CodeHiliteExtension
+
+md = markdown.Markdown(
+    extensions=[
+        CodeHiliteExtension(guess_lang=True),
+        'fenced_code',
+        'tables'
+    ]
+)
 ```
 
-Try sending another message with some markdown!""",
+### TypeScript Example
+
+Here's how you might integrate with an API:
+
+```typescript
+interface ChatMessage {{
+    role: 'user' | 'assistant';
+    content: string;
+    timestamp: Date;
+}}
+
+async function sendMessage(msg: ChatMessage): Promise<Response> {{
+    const response = await fetch('/api/chat', {{
+        method: 'POST',
+        headers: {{ 'Content-Type': 'application/json' }},
+        body: JSON.stringify(msg)
+    }});
+    return response.json();
+}}
+```
+
+Notice how keywords, strings, and types all have distinct Nord colors!""",
 
             f"""Got your message: "{user_text}"
 
-Let me demonstrate **robust markdown handling** even with syntax errors...
+Let me show you **syntax highlighting across multiple languages** while also testing robust markdown handling!
+
+### Shell Script Example:
+```bash
+#!/bin/bash
+# Deploy script with error handling
+set -euo pipefail
+
+echo "Starting deployment..."
+for service in api web worker; do
+    echo "Deploying $service..."
+    docker-compose up -d "$service" || exit 1
+done
+echo "Deployment complete!"
+```
+
+### C++ Example:
+```cpp
+#include <iostream>
+#include <vector>
+
+template<typename T>
+class Stack {{
+private:
+    std::vector<T> elements;
+public:
+    void push(const T& elem) {{ elements.push_back(elem); }}
+    T pop() {{
+        T elem = elements.back();
+        elements.pop_back();
+        return elem;
+    }}
+}};
+```
+
+## Markdown Robustness Test
 
 This has unclosed `code formatting
 
@@ -748,16 +969,17 @@ This has unclosed **bold formatting
 
 This has unclosed *italic formatting
 
-## And here's a table:
+## Data Table:
 
-| Column 1 | Column 2 | Column 3 |
-|----------|----------|----------|
-| Data 1   | Data 2   | Data 3   |
-| More     | Data     | Here     |
+| Language | Status | Colors |
+|----------|--------|--------|
+| Python   | ✅     | Blue, Green, Purple |
+| JavaScript | ✅   | Cyan, Yellow |
+| Rust     | ✅     | Full spectrum! |
 
 Even with markdown errors, everything still displays correctly! 🎉
 
-The interface prioritizes **showing content** over strict syntax enforcement."""
+The interface prioritizes **showing content** over strict syntax enforcement, while providing beautiful highlighting for properly formatted code."""
         ]
 
         import random

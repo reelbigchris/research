@@ -11,12 +11,21 @@ A modern, minimalist LLM chat interface built with PySide6 and styled with the b
 - Smooth animations and transitions
 - Professional, distraction-free chat experience
 
-### 📝 Robust Markdown Support
-- Full markdown rendering including:
+### 📝 Robust Markdown Support with Syntax Highlighting
+- Full markdown rendering using **Python-Markdown** including:
   - Headers, lists, and blockquotes
-  - Code blocks with syntax highlighting
-  - Tables
+  - **Pygments-powered syntax highlighting** for code blocks
+  - Tables (GitHub Flavored Markdown)
   - Links and formatting (bold, italic, etc.)
+- **Nord-themed syntax colors**:
+  - Keywords: Blue (`nord9`)
+  - Strings: Green (`nord14`)
+  - Comments: Gray (`nord3`)
+  - Functions: Cyan (`nord8`)
+  - Numbers: Purple (`nord15`)
+  - Classes: Teal (`nord7`)
+  - And more...
+- Automatic language detection for code blocks
 - Graceful error handling for malformed markdown
 - Prioritizes content display over strict syntax enforcement
 
@@ -89,9 +98,12 @@ chmod +x chat_app.py
   - Send button
   - Keyboard shortcuts
 
-- **MarkdownRenderer**: Robust markdown to HTML converter
+- **MarkdownRenderer**: Robust markdown to HTML converter with syntax highlighting
+  - Integrates Python-Markdown with CodeHilite extension
+  - Pygments for professional syntax highlighting
+  - Custom Nord-themed CSS for all syntax tokens
+  - Automatic language detection (supports 500+ languages)
   - Error handling for malformed markdown
-  - Nord-themed styling
   - Support for code blocks, tables, lists, etc.
 
 ### Nord Color Scheme
@@ -101,6 +113,31 @@ The interface uses the Nord color palette:
 - **Snow Storm** (nord4-6): Light text and foregrounds
 - **Frost** (nord7-10): Blue accents
 - **Aurora** (nord11-15): Colorful highlights
+
+### Syntax Highlighting
+
+The interface features **Pygments-powered syntax highlighting** with a custom Nord theme:
+
+**Supported Languages** (500+ total, popular ones include):
+- Python, JavaScript, TypeScript, Java, C, C++, C#
+- Rust, Go, Ruby, PHP, Swift, Kotlin
+- Shell/Bash, PowerShell, SQL, HTML, CSS
+- JSON, YAML, XML, Markdown
+- And many more...
+
+**Nord Color Mapping for Code:**
+```python
+# Example showing Nord colors in action
+class MarkdownRenderer:  # Classes: nord7 (teal)
+    def __init__(self):  # Keywords: nord9 (blue)
+        # Comments: nord3 (gray)
+        self.md = markdown.Markdown(  # Functions: nord8 (cyan)
+            extensions=['codehilite']  # Strings: nord14 (green)
+        )
+        self.count = 42  # Numbers: nord15 (purple)
+```
+
+The syntax highlighter automatically detects the language from the code fence identifier (e.g., ` ```python `) and applies appropriate Nord-themed colors for maximum readability.
 
 ## Integration with Real LLM
 
