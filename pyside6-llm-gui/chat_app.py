@@ -667,7 +667,7 @@ class InputArea(QWidget):
         main_layout.setContentsMargins(0, 0, 0, 0)
         main_layout.setSpacing(4)
 
-        # Token counter and context window indicator
+        # Token counter
         info_layout = QHBoxLayout()
         info_layout.setSpacing(8)
 
@@ -677,11 +677,6 @@ class InputArea(QWidget):
         info_layout.addWidget(self.token_label)
 
         info_layout.addStretch()
-
-        self.context_label = QLabel(f"Context: 0 / {self.max_tokens:,}")
-        self.context_label.setFont(QFont("SF Pro", 10))
-        self.context_label.setStyleSheet(f"color: {NORD['nord3']};")
-        info_layout.addWidget(self.context_label)
 
         main_layout.addLayout(info_layout)
 
@@ -724,19 +719,6 @@ class InputArea(QWidget):
             self.token_label.setStyleSheet(f"color: {NORD['nord13']};")  # Yellow
         else:
             self.token_label.setStyleSheet(f"color: {NORD['nord14']};")  # Green
-
-    def update_context_window(self, used_tokens):
-        """Update context window indicator with conversation token usage."""
-        percentage = (used_tokens / self.max_tokens) * 100
-        self.context_label.setText(f"Context: {used_tokens:,} / {self.max_tokens:,} ({percentage:.1f}%)")
-
-        # Color code based on context usage
-        if percentage > 90:
-            self.context_label.setStyleSheet(f"color: {NORD['nord11']};")  # Red
-        elif percentage > 70:
-            self.context_label.setStyleSheet(f"color: {NORD['nord13']};")  # Yellow
-        else:
-            self.context_label.setStyleSheet(f"color: {NORD['nord3']};")  # Gray
 
     def adjust_input_height(self):
         """Dynamically adjust input height based on content."""
@@ -806,6 +788,127 @@ class InputArea(QWidget):
         self.send_btn.setEnabled(enabled)
 
 
+class StatusBar(QWidget):
+    """Status bar showing model info, context usage, and available tools."""
+
+    def __init__(self, model_name="Claude Opus 4.5", max_tokens=4096, parent=None):
+        super().__init__(parent)
+        self.model_name = model_name
+        self.max_tokens = max_tokens
+        self.setup_ui()
+        self.apply_styles()
+
+    def setup_ui(self):
+        """Set up the status bar UI."""
+        layout = QHBoxLayout(self)
+        layout.setContentsMargins(8, 6, 8, 6)
+        layout.setSpacing(16)
+
+        # Model indicator
+        model_icon = QLabel("🤖")
+        model_icon.setFont(QFont("SF Pro", 12))
+        layout.addWidget(model_icon)
+
+        self.model_label = QLabel(self.model_name)
+        self.model_label.setFont(QFont("SF Pro", 10, QFont.Bold))
+        self.model_label.setStyleSheet(f"color: {NORD['nord8']};")
+        layout.addWidget(self.model_label)
+
+        layout.addWidget(self._create_separator())
+
+        # Context usage
+        context_icon = QLabel("📊")
+        context_icon.setFont(QFont("SF Pro", 12))
+        layout.addWidget(context_icon)
+
+        self.context_label = QLabel(f"Context: 0 / {self.max_tokens:,}")
+        self.context_label.setFont(QFont("SF Pro", 10))
+        self.context_label.setStyleSheet(f"color: {NORD['nord4']};")
+        layout.addWidget(self.context_label)
+
+        layout.addWidget(self._create_separator())
+
+        # Available tools
+        tools_icon = QLabel("🔧")
+        tools_icon.setFont(QFont("SF Pro", 12))
+        layout.addWidget(tools_icon)
+
+        self.tools_label = QLabel("Tools:")
+        self.tools_label.setFont(QFont("SF Pro", 10))
+        self.tools_label.setStyleSheet(f"color: {NORD['nord4']};")
+        layout.addWidget(self.tools_label)
+
+        # Mock tool indicators
+        self.tool_badges = []
+
+        # Python tool
+        python_badge = self._create_tool_badge("Python", True)
+        layout.addWidget(python_badge)
+        self.tool_badges.append(python_badge)
+
+        # Git tool
+        git_badge = self._create_tool_badge("Git", True)
+        layout.addWidget(git_badge)
+        self.tool_badges.append(git_badge)
+
+        # Docker tool
+        docker_badge = self._create_tool_badge("Docker", False)
+        layout.addWidget(docker_badge)
+        self.tool_badges.append(docker_badge)
+
+        # Bash tool
+        bash_badge = self._create_tool_badge("Bash", True)
+        layout.addWidget(bash_badge)
+        self.tool_badges.append(bash_badge)
+
+        layout.addStretch()
+
+    def _create_separator(self):
+        """Create a vertical separator."""
+        separator = QLabel("|")
+        separator.setStyleSheet(f"color: {NORD['nord3']};")
+        separator.setFont(QFont("SF Pro", 10))
+        return separator
+
+    def _create_tool_badge(self, name, available):
+        """Create a tool availability badge."""
+        badge = QLabel(name)
+        badge.setFont(QFont("SF Pro", 9))
+        badge.setStyleSheet(f"""
+            QLabel {{
+                background-color: {NORD['nord14'] if available else NORD['nord3']};
+                color: {NORD['nord0']};
+                padding: 2px 6px;
+                border-radius: 3px;
+                font-weight: bold;
+            }}
+        """)
+        badge.setToolTip(f"{name} is {'available' if available else 'not available'}")
+        return badge
+
+    def update_context(self, used_tokens):
+        """Update context window indicator."""
+        percentage = (used_tokens / self.max_tokens) * 100
+        self.context_label.setText(f"Context: {used_tokens:,} / {self.max_tokens:,} ({percentage:.1f}%)")
+
+        # Color code based on context usage
+        if percentage > 90:
+            self.context_label.setStyleSheet(f"color: {NORD['nord11']};")  # Red
+        elif percentage > 70:
+            self.context_label.setStyleSheet(f"color: {NORD['nord13']};")  # Yellow
+        else:
+            self.context_label.setStyleSheet(f"color: {NORD['nord4']};")  # Normal
+
+    def apply_styles(self):
+        """Apply Nord-themed styles."""
+        self.setStyleSheet(f"""
+            StatusBar {{
+                background-color: {NORD['nord1']};
+                border-top: 1px solid {NORD['nord3']};
+            }}
+        """)
+
+
 class MainWindow(QMainWindow):
     """Main application window."""
 
@@ -872,6 +975,10 @@ class MainWindow(QMainWindow):
         self.input_area = InputArea()
         self.input_area.send_message.connect(self.handle_user_message)
         main_layout.addWidget(self.input_area)
+
+        # Status bar
+        self.status_bar = StatusBar()
+        main_layout.addWidget(self.status_bar)
 
     def apply_styles(self):
         """Apply Nord-themed styles to the main window."""
@@ -1046,7 +1153,7 @@ I'll structure this with clear sections and code examples."""
             if hasattr(msg, 'thinking_text') and msg.thinking_text:
                 total_tokens += TokenCounter.estimate_tokens(msg.thinking_text)
 
-        self.input_area.update_context_window(total_tokens)
+        self.status_bar.update_context(total_tokens)
 
     def simulate_streaming(self, message_widget, user_text):
         """Simulate a streaming LLM response."""
