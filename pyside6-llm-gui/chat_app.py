@@ -109,14 +109,15 @@ class MarkdownRenderer:
             .highlight {{
                 background-color: {NORD['nord0']};
                 border-radius: 6px;
-                position: relative;
-                padding: 16px;
                 margin: 8px 0;
+                display: block;
             }}
             .highlight pre {{
                 margin: 0;
-                padding: 0;
+                padding: 20px;
                 background-color: {NORD['nord0']};
+                display: block;
+                line-height: 1.4;
             }}
 
             /* Syntax highlighting colors */
