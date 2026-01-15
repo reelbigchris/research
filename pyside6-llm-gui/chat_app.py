@@ -314,24 +314,25 @@ class MessageWidget(QFrame):
         self.checkbox.stateChanged.connect(self.on_selection_changed)
         header_layout.addWidget(self.checkbox)
 
-        # Role label
-        role = "You" if self.is_user else "Assistant"
+        # Role label with emoji
+        role = "⚽ You" if self.is_user else "🦊 Assistant"
         self.role_label = QLabel(role)
         self.role_label.setFont(QFont("SF Pro", 11, QFont.Bold))
+        self.role_label.setStyleSheet(f"color: {NORD['nord6']};")  # Brighter text
         header_layout.addWidget(self.role_label)
 
         # Timestamp
         time_str = self.timestamp.strftime("%H:%M:%S")
         self.timestamp_label = QLabel(time_str)
         self.timestamp_label.setFont(QFont("SF Pro", 10))
-        self.timestamp_label.setStyleSheet(f"color: {NORD['nord3']};")
+        self.timestamp_label.setStyleSheet(f"color: {NORD['nord4']};")  # Brighter gray
         header_layout.addWidget(self.timestamp_label)
 
         # Response time and token count (for assistant messages)
         if not self.is_user:
             self.metrics_label = QLabel("")
             self.metrics_label.setFont(QFont("SF Pro", 10))
-            self.metrics_label.setStyleSheet(f"color: {NORD['nord3']};")
+            self.metrics_label.setStyleSheet(f"color: {NORD['nord4']};")  # Brighter gray
             self.metrics_label.hide()  # Show after streaming completes
             header_layout.addWidget(self.metrics_label)
 
@@ -478,15 +479,19 @@ class MessageWidget(QFrame):
         """Apply Nord-themed styles to the widget."""
         bg_color = NORD['nord1'] if self.is_user else NORD['nord2']
         border_color = NORD['nord3']
+        # Left border color: light blue for user, orange for assistant
+        left_border_color = NORD['nord8'] if self.is_user else NORD['nord12']
 
         self.setStyleSheet(f"""
             MessageWidget {{
                 background-color: {bg_color};
                 border: 1px solid {border_color};
+                border-left: 4px solid {left_border_color};
                 border-radius: 8px;
             }}
             MessageWidget[selected="true"] {{
                 border: 2px solid {NORD['nord8']};
+                border-left: 4px solid {border_left_color};
             }}
             QLabel {{
                 color: {NORD['nord6']};
