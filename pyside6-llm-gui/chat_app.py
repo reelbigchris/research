@@ -491,7 +491,7 @@ class MessageWidget(QFrame):
             }}
             MessageWidget[selected="true"] {{
                 border: 2px solid {NORD['nord8']};
-                border-left: 4px solid {border_left_color};
+                border-left: 4px solid {left_border_color};
             }}
             QLabel {{
                 color: {NORD['nord6']};
