@@ -432,13 +432,11 @@ class MessageWidget(QFrame):
         self.content_display.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
         self.content_display.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Minimum)
 
-        # Update content
-        self.update_content()
-
         layout.addWidget(self.content_display)
 
-        # Adjust height based on content
-        self.adjust_height()
+        # Update content and adjust height
+        # We do this after adding to layout so Qt can calculate sizes properly
+        self.update_content()
 
     def toggle_thinking(self):
         """Toggle the thinking box visibility."""
@@ -447,6 +445,7 @@ class MessageWidget(QFrame):
             self.thinking_toggle_btn.setText("▼ Hide Thinking")
             self.thinking_content.show()
             # Adjust height for thinking content
+            self.thinking_content.document().adjustSize()
             doc_height = self.thinking_content.document().size().height()
             self.thinking_content.setFixedHeight(int(doc_height + 10))
         else:
@@ -465,7 +464,10 @@ class MessageWidget(QFrame):
             html = self.renderer.render(self.text)
 
         self.content_display.setHtml(html)
-        self.adjust_height()
+
+        # Force document layout, then adjust height after Qt finishes rendering
+        self.content_display.document().adjustSize()
+        QTimer.singleShot(50, self.adjust_height)
 
     def adjust_height(self):
         """Adjust widget height to fit content."""
@@ -662,6 +664,10 @@ class ChatArea(QWidget):
         # Insert before the stretch
         self.layout.insertWidget(self.layout.count() - 1, message)
         self.messages.append(message)
+
+        # Force layout update to ensure proper sizing
+        # Need a longer delay to let Qt finish laying out the complex markdown/HTML
+        QTimer.singleShot(100, lambda: message.adjust_height())
 
         return message
 
