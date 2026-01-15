@@ -302,7 +302,7 @@ class MessageWidget(QFrame):
         """Set up the message widget UI."""
         layout = QVBoxLayout(self)
         layout.setContentsMargins(12, 10, 12, 10)
-        layout.setSpacing(8)
+        layout.setSpacing(12)
 
         # Header with role label, timestamp, and metrics
         header_layout = QHBoxLayout()
@@ -470,7 +470,7 @@ class MessageWidget(QFrame):
     def adjust_height(self):
         """Adjust widget height to fit content."""
         doc_height = self.content_display.document().size().height()
-        self.content_display.setFixedHeight(int(doc_height + 10))
+        self.content_display.setFixedHeight(int(doc_height + 20))
 
     def apply_styles(self):
         """Apply Nord-themed styles to the widget."""
@@ -717,15 +717,15 @@ class InputArea(QWidget):
         # Multi-line text input
         self.text_input = QTextEdit()
         self.text_input.setPlaceholderText("Type your message here... (Ctrl+Enter to send)")
-        self.text_input.setMaximumHeight(150)
-        self.text_input.setMinimumHeight(80)
+        self.text_input.setMaximumHeight(120)
+        self.text_input.setMinimumHeight(60)
         self.text_input.installEventFilter(self)
         self.text_input.textChanged.connect(self.update_token_count)
         input_layout.addWidget(self.text_input)
 
         # Send button
         self.send_btn = QPushButton("Send")
-        self.send_btn.setFixedSize(80, 80)
+        self.send_btn.setFixedSize(60, 60)
         self.send_btn.clicked.connect(self.send)
         self.send_btn.setCursor(Qt.PointingHandCursor)
         input_layout.addWidget(self.send_btn)
@@ -1006,7 +1006,14 @@ fn main() {
 
 Try sending a message with code blocks in different languages to see the highlighting in action!
 """
-        self.chat_area.add_message(welcome, is_user=False)
+        # Add welcome message with thinking to demonstrate the feature
+        thinking_demo = """Preparing welcome message for new user...
+Let me showcase all the key features including:
+- Markdown rendering with syntax highlighting
+- The new token counter and metrics
+- This expandable thinking box itself!
+I'll structure this with clear sections and code examples."""
+        self.chat_area.add_message(welcome, is_user=False, thinking_text=thinking_demo)
 
     def handle_user_message(self, text):
         """Handle a user message."""
@@ -1038,7 +1045,8 @@ Try sending a message with code blocks in different languages to see the highlig
             f"The user is asking about: '{user_text[:40]}...'\nI should provide a helpful and informative response with code examples.\nLet me structure this with clear sections and use markdown formatting.",
             f"Analyzing the query: '{user_text[:40]}...'\nThis seems like a technical question. I'll include:\n1. A clear explanation\n2. Code examples with syntax highlighting\n3. Best practices",
             f"Processing user input: '{user_text[:40]}...'\nI'll demonstrate the interface capabilities including:\n- Markdown rendering\n- Syntax highlighting\n- Response streaming",
-            ""  # Some responses won't have thinking
+            f"Considering how to best respond to: '{user_text[:40]}...'\nI'll focus on being clear and concise while showing off the interface features.\nMaybe include some code examples with different languages.",
+            f"Planning response structure for: '{user_text[:40]}...'\nKey points to cover:\n- Direct answer to the question\n- Supporting examples\n- Visual formatting with markdown",
         ]
         return random.choice(thinking_options)
 
