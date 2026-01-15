@@ -8,14 +8,16 @@ Uses the Nord color scheme.
 import sys
 import re
 import markdown
+import time
+from datetime import datetime
 from markdown.extensions.codehilite import CodeHiliteExtension
 from pygments.formatters import HtmlFormatter
 from PySide6.QtWidgets import (
     QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
     QTextEdit, QPushButton, QScrollArea, QLabel, QFrame, QCheckBox,
-    QDialog, QPlainTextEdit, QToolButton, QSizePolicy
+    QDialog, QPlainTextEdit, QToolButton, QSizePolicy, QProgressBar
 )
-from PySide6.QtCore import Qt, QTimer, Signal, QSize
+from PySide6.QtCore import Qt, QTimer, Signal, QSize, QElapsedTimer
 from PySide6.QtGui import QFont, QTextCursor, QClipboard, QIcon
 
 
@@ -42,6 +44,39 @@ NORD = {
     'nord14': '#A3BE8C',  # Green
     'nord15': '#B48EAD',  # Purple
 }
+
+
+class TokenCounter:
+    """Simple token counter for estimating token usage."""
+
+    @staticmethod
+    def estimate_tokens(text):
+        """
+        Estimate token count using a simple heuristic.
+        Roughly 1 token per 4 characters for English text.
+        This is an approximation; real tokenizers are more complex.
+        """
+        if not text:
+            return 0
+
+        # Simple estimation: ~4 chars per token
+        # This is approximate but good enough for UI feedback
+        char_count = len(text)
+        word_count = len(text.split())
+
+        # Use average of character-based and word-based estimates
+        char_estimate = char_count / 4
+        word_estimate = word_count * 1.3  # ~1.3 tokens per word on average
+
+        return int((char_estimate + word_estimate) / 2)
+
+    @staticmethod
+    def format_token_count(count, max_tokens=None):
+        """Format token count for display."""
+        if max_tokens:
+            percentage = (count / max_tokens) * 100
+            return f"{count:,} / {max_tokens:,} tokens ({percentage:.1f}%)"
+        return f"{count:,} tokens"
 
 
 class MarkdownRenderer:
@@ -247,14 +282,18 @@ class MessageWidget(QFrame):
     copy_requested = Signal(str)
     regenerate_requested = Signal()
 
-    def __init__(self, text, is_user=True, parent=None):
+    def __init__(self, text, is_user=True, thinking_text="", parent=None):
         super().__init__(parent)
         self.text = text
         self.is_user = is_user
         self.original_text = text
+        self.thinking_text = thinking_text
         self.renderer = MarkdownRenderer()
         self.is_selected = False
         self.is_streaming = False
+        self.timestamp = datetime.now()
+        self.response_time = None  # Will be set when streaming completes
+        self.start_time = None
 
         self.setup_ui()
         self.apply_styles()
@@ -265,7 +304,7 @@ class MessageWidget(QFrame):
         layout.setContentsMargins(12, 10, 12, 10)
         layout.setSpacing(8)
 
-        # Header with role label and selection checkbox
+        # Header with role label, timestamp, and metrics
         header_layout = QHBoxLayout()
         header_layout.setSpacing(8)
 
@@ -281,10 +320,26 @@ class MessageWidget(QFrame):
         self.role_label.setFont(QFont("SF Pro", 11, QFont.Bold))
         header_layout.addWidget(self.role_label)
 
+        # Timestamp
+        time_str = self.timestamp.strftime("%H:%M:%S")
+        self.timestamp_label = QLabel(time_str)
+        self.timestamp_label.setFont(QFont("SF Pro", 10))
+        self.timestamp_label.setStyleSheet(f"color: {NORD['nord3']};")
+        header_layout.addWidget(self.timestamp_label)
+
+        # Response time and token count (for assistant messages)
+        if not self.is_user:
+            self.metrics_label = QLabel("")
+            self.metrics_label.setFont(QFont("SF Pro", 10))
+            self.metrics_label.setStyleSheet(f"color: {NORD['nord3']};")
+            self.metrics_label.hide()  # Show after streaming completes
+            header_layout.addWidget(self.metrics_label)
+
         # Waiting indicator (for assistant messages only)
         if not self.is_user:
-            self.waiting_label = QLabel("●")
-            self.waiting_label.setFont(QFont("SF Pro", 16))
+            self.waiting_label = QLabel("Thinking")
+            self.waiting_label.setFont(QFont("SF Pro", 10))
+            self.waiting_label.setStyleSheet(f"color: {NORD['nord13']};")  # Yellow
             self.waiting_label.hide()
             header_layout.addWidget(self.waiting_label)
 
@@ -313,6 +368,62 @@ class MessageWidget(QFrame):
 
         layout.addLayout(header_layout)
 
+        # Thinking box (expandable, for assistant messages only)
+        if not self.is_user and self.thinking_text:
+            self.thinking_frame = QFrame()
+            self.thinking_frame.setStyleSheet(f"""
+                QFrame {{
+                    background-color: {NORD['nord0']};
+                    border: 1px solid {NORD['nord3']};
+                    border-radius: 4px;
+                }}
+            """)
+            thinking_layout = QVBoxLayout(self.thinking_frame)
+            thinking_layout.setContentsMargins(8, 6, 8, 6)
+            thinking_layout.setSpacing(4)
+
+            # Thinking header (clickable to expand/collapse)
+            thinking_header = QHBoxLayout()
+            self.thinking_toggle_btn = QToolButton()
+            self.thinking_toggle_btn.setText("▶ View Thinking")
+            self.thinking_toggle_btn.setStyleSheet(f"""
+                QToolButton {{
+                    background: transparent;
+                    color: {NORD['nord13']};
+                    border: none;
+                    text-align: left;
+                    font-weight: bold;
+                    font-size: 11px;
+                }}
+                QToolButton:hover {{
+                    color: {NORD['nord12']};
+                }}
+            """)
+            self.thinking_toggle_btn.clicked.connect(self.toggle_thinking)
+            self.thinking_toggle_btn.setCursor(Qt.PointingHandCursor)
+            thinking_header.addWidget(self.thinking_toggle_btn)
+            thinking_header.addStretch()
+            thinking_layout.addLayout(thinking_header)
+
+            # Thinking content (initially hidden)
+            self.thinking_content = QTextEdit()
+            self.thinking_content.setReadOnly(True)
+            self.thinking_content.setFrameStyle(QFrame.NoFrame)
+            self.thinking_content.setStyleSheet(f"""
+                QTextEdit {{
+                    background-color: transparent;
+                    color: {NORD['nord4']};
+                    font-style: italic;
+                }}
+            """)
+            escaped_thinking = self.thinking_text.replace('&', '&amp;').replace('<', '&lt;').replace('>', '&gt;').replace('\n', '<br>')
+            self.thinking_content.setHtml(f"<div style='color: {NORD['nord4']}; font-style: italic;'>{escaped_thinking}</div>")
+            self.thinking_content.hide()
+            thinking_layout.addWidget(self.thinking_content)
+
+            self.thinking_expanded = False
+            layout.addWidget(self.thinking_frame)
+
         # Message content
         self.content_display = QTextEdit()
         self.content_display.setReadOnly(True)
@@ -327,6 +438,20 @@ class MessageWidget(QFrame):
         layout.addWidget(self.content_display)
 
         # Adjust height based on content
+        self.adjust_height()
+
+    def toggle_thinking(self):
+        """Toggle the thinking box visibility."""
+        self.thinking_expanded = not self.thinking_expanded
+        if self.thinking_expanded:
+            self.thinking_toggle_btn.setText("▼ Hide Thinking")
+            self.thinking_content.show()
+            # Adjust height for thinking content
+            doc_height = self.thinking_content.document().size().height()
+            self.thinking_content.setFixedHeight(int(doc_height + 10))
+        else:
+            self.thinking_toggle_btn.setText("▶ View Thinking")
+            self.thinking_content.hide()
         self.adjust_height()
 
     def update_content(self):
@@ -466,30 +591,46 @@ class MessageWidget(QFrame):
     def start_streaming(self):
         """Start streaming mode with waiting indicator."""
         self.is_streaming = True
+        self.start_time = time.time()
         if not self.is_user:
             self.waiting_label.show()
             self.animate_waiting()
 
     def stop_streaming(self):
-        """Stop streaming mode."""
+        """Stop streaming mode and show metrics."""
         self.is_streaming = False
         if not self.is_user:
             self.waiting_label.hide()
 
+            # Calculate response time
+            if self.start_time:
+                self.response_time = time.time() - self.start_time
+
+                # Calculate token count
+                token_count = TokenCounter.estimate_tokens(self.text)
+
+                # Calculate tokens per second
+                tokens_per_sec = token_count / self.response_time if self.response_time > 0 else 0
+
+                # Update metrics label
+                metrics_text = f"⏱ {self.response_time:.2f}s | 🔤 {token_count} tokens | ⚡ {tokens_per_sec:.1f} tok/s"
+                self.metrics_label.setText(metrics_text)
+                self.metrics_label.show()
+
     def animate_waiting(self):
-        """Animate the waiting indicator."""
+        """Animate the waiting indicator with a more sophisticated animation."""
         if self.is_streaming and not self.is_user:
             current = self.waiting_label.text()
-            if current == "●":
-                self.waiting_label.setText("◐")
-            elif current == "◐":
-                self.waiting_label.setText("◑")
-            elif current == "◑":
-                self.waiting_label.setText("◒")
-            else:
-                self.waiting_label.setText("●")
+            # Cycle through different states
+            states = ["Thinking", "Thinking.", "Thinking..", "Thinking..."]
+            try:
+                current_index = states.index(current)
+                next_index = (current_index + 1) % len(states)
+                self.waiting_label.setText(states[next_index])
+            except ValueError:
+                self.waiting_label.setText(states[0])
 
-            QTimer.singleShot(200, self.animate_waiting)
+            QTimer.singleShot(400, self.animate_waiting)
 
     def append_text(self, text):
         """Append text to the message (for streaming)."""
@@ -513,9 +654,9 @@ class ChatArea(QWidget):
         self.layout.setSpacing(12)
         self.layout.addStretch()
 
-    def add_message(self, text, is_user=True):
+    def add_message(self, text, is_user=True, thinking_text=""):
         """Add a message to the chat area."""
-        message = MessageWidget(text, is_user, self)
+        message = MessageWidget(text, is_user, thinking_text, self)
         message.copy_requested.connect(self.copy_to_clipboard)
 
         # Insert before the stretch
@@ -535,20 +676,43 @@ class ChatArea(QWidget):
 
 
 class InputArea(QWidget):
-    """Multi-line input area for user messages."""
+    """Multi-line input area for user messages with token counter."""
 
     send_message = Signal(str)
 
-    def __init__(self, parent=None):
+    def __init__(self, max_tokens=4096, parent=None):
         super().__init__(parent)
+        self.max_tokens = max_tokens
         self.setup_ui()
         self.apply_styles()
 
     def setup_ui(self):
         """Set up the input area UI."""
-        layout = QHBoxLayout(self)
-        layout.setContentsMargins(0, 0, 0, 0)
-        layout.setSpacing(8)
+        main_layout = QVBoxLayout(self)
+        main_layout.setContentsMargins(0, 0, 0, 0)
+        main_layout.setSpacing(4)
+
+        # Token counter and context window indicator
+        info_layout = QHBoxLayout()
+        info_layout.setSpacing(8)
+
+        self.token_label = QLabel("0 tokens")
+        self.token_label.setFont(QFont("SF Pro", 10))
+        self.token_label.setStyleSheet(f"color: {NORD['nord3']};")
+        info_layout.addWidget(self.token_label)
+
+        info_layout.addStretch()
+
+        self.context_label = QLabel(f"Context: 0 / {self.max_tokens:,}")
+        self.context_label.setFont(QFont("SF Pro", 10))
+        self.context_label.setStyleSheet(f"color: {NORD['nord3']};")
+        info_layout.addWidget(self.context_label)
+
+        main_layout.addLayout(info_layout)
+
+        # Input area layout
+        input_layout = QHBoxLayout()
+        input_layout.setSpacing(8)
 
         # Multi-line text input
         self.text_input = QTextEdit()
@@ -556,14 +720,46 @@ class InputArea(QWidget):
         self.text_input.setMaximumHeight(150)
         self.text_input.setMinimumHeight(80)
         self.text_input.installEventFilter(self)
-        layout.addWidget(self.text_input)
+        self.text_input.textChanged.connect(self.update_token_count)
+        input_layout.addWidget(self.text_input)
 
         # Send button
         self.send_btn = QPushButton("Send")
         self.send_btn.setFixedSize(80, 80)
         self.send_btn.clicked.connect(self.send)
         self.send_btn.setCursor(Qt.PointingHandCursor)
-        layout.addWidget(self.send_btn)
+        input_layout.addWidget(self.send_btn)
+
+        main_layout.addLayout(input_layout)
+
+    def update_token_count(self):
+        """Update the token count label as user types."""
+        text = self.text_input.toPlainText()
+        token_count = TokenCounter.estimate_tokens(text)
+
+        # Update token label
+        self.token_label.setText(f"{token_count} tokens")
+
+        # Color code based on usage
+        if token_count > self.max_tokens * 0.9:
+            self.token_label.setStyleSheet(f"color: {NORD['nord11']};")  # Red
+        elif token_count > self.max_tokens * 0.7:
+            self.token_label.setStyleSheet(f"color: {NORD['nord13']};")  # Yellow
+        else:
+            self.token_label.setStyleSheet(f"color: {NORD['nord14']};")  # Green
+
+    def update_context_window(self, used_tokens):
+        """Update context window indicator with conversation token usage."""
+        percentage = (used_tokens / self.max_tokens) * 100
+        self.context_label.setText(f"Context: {used_tokens:,} / {self.max_tokens:,} ({percentage:.1f}%)")
+
+        # Color code based on context usage
+        if percentage > 90:
+            self.context_label.setStyleSheet(f"color: {NORD['nord11']};")  # Red
+        elif percentage > 70:
+            self.context_label.setStyleSheet(f"color: {NORD['nord13']};")  # Yellow
+        else:
+            self.context_label.setStyleSheet(f"color: {NORD['nord3']};")  # Gray
 
     def apply_styles(self):
         """Apply Nord-themed styles."""
@@ -739,7 +935,7 @@ class MainWindow(QMainWindow):
 
 This is a **modern, minimalist** chat interface built with PySide6 and styled with the Nord color scheme.
 
-## Features:
+## Core Features:
 - 🎨 Beautiful Nord-themed design with carefully chosen colors
 - 📝 Robust Markdown rendering with **Pygments syntax highlighting**
 - ⚡ Streaming message support with animated indicators
@@ -747,6 +943,14 @@ This is a **modern, minimalist** chat interface built with PySide6 and styled wi
 - ✅ Select multiple messages at once
 - 🔄 Regenerate and view original responses
 - ⌨️ Keyboard shortcuts (Ctrl+Enter to send)
+
+## Advanced Features (NEW!):
+- 🔤 **Real-time token counter** - See estimated tokens as you type
+- 📊 **Context window indicator** - Track conversation token usage
+- ⏱️ **Response metrics** - Time, token count, and tokens/second for each response
+- 💭 **Expandable thinking box** - View the model's reasoning process
+- 🕒 **Message timestamps** - Track when each message was sent
+- 🎯 **Improved animations** - More realistic "Thinking..." indicator
 
 ## Syntax Highlighting Demo
 
@@ -810,16 +1014,43 @@ Try sending a message with code blocks in different languages to see the highlig
         self.chat_area.add_message(text, is_user=True)
         self.scroll_to_bottom()
 
+        # Update context window
+        self.update_context_window()
+
         # Disable input while processing
         self.input_area.set_enabled(False)
 
+        # Generate thinking text
+        thinking = self.generate_thinking_text(text)
+
         # Add assistant message with streaming
-        assistant_msg = self.chat_area.add_message("", is_user=False)
+        assistant_msg = self.chat_area.add_message("", is_user=False, thinking_text=thinking)
         assistant_msg.start_streaming()
         self.scroll_to_bottom()
 
         # Simulate streaming response
         self.simulate_streaming(assistant_msg, text)
+
+    def generate_thinking_text(self, user_text):
+        """Generate simulated thinking text for the response."""
+        import random
+        thinking_options = [
+            f"The user is asking about: '{user_text[:40]}...'\nI should provide a helpful and informative response with code examples.\nLet me structure this with clear sections and use markdown formatting.",
+            f"Analyzing the query: '{user_text[:40]}...'\nThis seems like a technical question. I'll include:\n1. A clear explanation\n2. Code examples with syntax highlighting\n3. Best practices",
+            f"Processing user input: '{user_text[:40]}...'\nI'll demonstrate the interface capabilities including:\n- Markdown rendering\n- Syntax highlighting\n- Response streaming",
+            ""  # Some responses won't have thinking
+        ]
+        return random.choice(thinking_options)
+
+    def update_context_window(self):
+        """Update the context window indicator based on conversation tokens."""
+        total_tokens = 0
+        for msg in self.chat_area.messages:
+            total_tokens += TokenCounter.estimate_tokens(msg.text)
+            if hasattr(msg, 'thinking_text') and msg.thinking_text:
+                total_tokens += TokenCounter.estimate_tokens(msg.thinking_text)
+
+        self.input_area.update_context_window(total_tokens)
 
     def simulate_streaming(self, message_widget, user_text):
         """Simulate a streaming LLM response."""
@@ -845,6 +1076,9 @@ Try sending a message with code blocks in different languages to see the highlig
             # Streaming complete
             message_widget.stop_streaming()
             self.input_area.set_enabled(True)
+
+            # Update context window after response
+            self.update_context_window()
 
     def generate_mock_response(self, user_text):
         """Generate a mock LLM response."""

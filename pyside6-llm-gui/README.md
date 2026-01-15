@@ -52,6 +52,30 @@ A modern, minimalist LLM chat interface built with PySide6 and styled with the b
 - Multi-line text input with auto-resize
 - Smooth scrolling to latest messages
 
+### 🔬 Advanced Features (NEW!)
+
+**Token Management:**
+- **Real-time token counter**: Displays estimated token count as you type
+- **Context window indicator**: Shows total conversation tokens vs max (default 4096)
+- Color-coded warnings (green → yellow → red) as you approach limits
+
+**Performance Metrics:**
+- **Response time tracking**: Precise timing for each assistant response
+- **Token count per message**: Automatic estimation for all messages
+- **Tokens per second**: Real-time throughput metrics during streaming
+- **Message timestamps**: Track when each message was sent (HH:MM:SS format)
+
+**Thinking Box (Extended Thinking):**
+- Expandable section showing the model's reasoning process
+- Click "▶ View Thinking" to expand, "▼ Hide Thinking" to collapse
+- Styled differently from main content (darker background, italic text)
+- Optional - only appears when thinking text is available
+
+**Enhanced Animations:**
+- Improved "Thinking..." indicator with smooth dot animation
+- Shows metrics after streaming completes
+- Non-blocking animations that don't interfere with UI responsiveness
+
 ## Installation
 
 1. Create a virtual environment (recommended):
@@ -82,21 +106,33 @@ chmod +x chat_app.py
 
 ### Components
 
+- **TokenCounter**: Simple but effective token estimation utility
+  - Estimates tokens using character and word-based heuristics (~1 token per 4 characters)
+  - Good enough for UI feedback without requiring heavyweight tokenizers
+  - Format helper for displaying counts with percentages
+
 - **MessageWidget**: Individual chat message with markdown rendering
   - Selection checkbox
   - Copy, View Original, and Regenerate buttons
-  - Streaming support with waiting animation
+  - Streaming support with improved "Thinking..." animation
+  - **Timestamp display** showing when message was sent
+  - **Response metrics** (time, tokens, tokens/sec) for assistant messages
+  - **Expandable thinking box** for viewing model reasoning
   - Auto-sizing based on content
 
 - **ChatArea**: Scrollable container for all messages
   - Efficient layout management
   - Auto-scroll to bottom on new messages
   - Message selection tracking
+  - Support for thinking text in assistant messages
 
-- **InputArea**: Multi-line message input
+- **InputArea**: Multi-line message input with live feedback
   - Resizable text area
   - Send button
-  - Keyboard shortcuts
+  - Keyboard shortcuts (Ctrl+Enter)
+  - **Real-time token counter** that updates as you type
+  - **Context window indicator** showing conversation token usage
+  - Color-coded warnings for token limits
 
 - **MarkdownRenderer**: Robust markdown to HTML converter with syntax highlighting
   - Integrates Python-Markdown with CodeHilite extension
