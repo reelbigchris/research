@@ -109,10 +109,11 @@ class MarkdownRenderer:
             .highlight {{
                 background-color: {NORD['nord0']};
                 border-radius: 6px;
+                position: relative;
             }}
             .highlight pre {{
                 margin: 0;
-                padding: 12px;
+                padding: 16px 16px 16px 16px;
                 background-color: {NORD['nord0']};
             }}
 
@@ -223,7 +224,7 @@ class MarkdownRenderer:
                     background-color: {NORD['nord1']};
                     border: 1px solid {NORD['nord3']};
                     border-radius: 6px;
-                    padding: 12px;
+                    padding: 16px;
                     overflow-x: auto;
                 }}
                 pre code {{
@@ -265,6 +266,9 @@ class MarkdownRenderer:
                 }}
                 ul, ol {{
                     padding-left: 24px;
+                }}
+                li {{
+                    margin-bottom: 6px;
                 }}
 
                 {self.pygments_css}
@@ -690,14 +694,16 @@ class InputArea(QWidget):
         self.text_input = QTextEdit()
         self.text_input.setPlaceholderText("Type your message here... (Ctrl+Enter to send)")
         self.text_input.setMaximumHeight(120)
-        self.text_input.setMinimumHeight(60)
+        # Start with single line height
+        self.text_input.setFixedHeight(36)
         self.text_input.installEventFilter(self)
         self.text_input.textChanged.connect(self.update_token_count)
+        self.text_input.textChanged.connect(self.adjust_input_height)
         input_layout.addWidget(self.text_input)
 
         # Send button
         self.send_btn = QPushButton("Send")
-        self.send_btn.setFixedSize(60, 60)
+        self.send_btn.setFixedSize(60, 36)  # Match initial input height
         self.send_btn.clicked.connect(self.send)
         self.send_btn.setCursor(Qt.PointingHandCursor)
         input_layout.addWidget(self.send_btn)
@@ -732,6 +738,19 @@ class InputArea(QWidget):
             self.context_label.setStyleSheet(f"color: {NORD['nord13']};")  # Yellow
         else:
             self.context_label.setStyleSheet(f"color: {NORD['nord3']};")  # Gray
+
+    def adjust_input_height(self):
+        """Dynamically adjust input height based on content."""
+        doc_height = self.text_input.document().size().height()
+        # Add padding and margin
+        new_height = int(doc_height + 16)
+
+        # Clamp between minimum (single line) and maximum height
+        new_height = max(36, min(new_height, 120))
+
+        self.text_input.setFixedHeight(new_height)
+        # Adjust send button height to match
+        self.send_btn.setFixedHeight(new_height)
 
     def apply_styles(self):
         """Apply Nord-themed styles."""
@@ -778,6 +797,9 @@ class InputArea(QWidget):
         if text:
             self.send_message.emit(text)
             self.text_input.clear()
+            # Reset height after clearing
+            self.text_input.setFixedHeight(36)
+            self.send_btn.setFixedHeight(36)
 
     def set_enabled(self, enabled):
         """Enable or disable input."""
