@@ -7,6 +7,7 @@ Uses the Nord color scheme.
 
 import sys
 import re
+import json
 import markdown
 import time
 from datetime import datetime
@@ -14,8 +15,9 @@ from markdown.extensions.codehilite import CodeHiliteExtension
 from pygments.formatters import HtmlFormatter
 from PySide6.QtWidgets import (
     QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
-    QTextEdit, QPushButton, QScrollArea, QLabel, QFrame, QCheckBox,
-    QDialog, QPlainTextEdit, QToolButton, QSizePolicy, QProgressBar
+    QTextEdit, QPushButton, QScrollArea, QLabel, QFrame,
+    QDialog, QPlainTextEdit, QToolButton, QSizePolicy, QProgressBar,
+    QMenuBar, QMenu, QFileDialog
 )
 from PySide6.QtCore import Qt, QTimer, Signal, QSize, QElapsedTimer
 from PySide6.QtGui import QFont, QTextCursor, QClipboard, QIcon
@@ -289,7 +291,6 @@ class MessageWidget(QFrame):
         self.original_text = text
         self.thinking_text = thinking_text
         self.renderer = MarkdownRenderer()
-        self.is_selected = False
         self.is_streaming = False
         self.timestamp = datetime.now()
         self.response_time = None  # Will be set when streaming completes
@@ -307,12 +308,6 @@ class MessageWidget(QFrame):
         # Header with role label, timestamp, and metrics
         header_layout = QHBoxLayout()
         header_layout.setSpacing(8)
-
-        # Selection checkbox
-        self.checkbox = QCheckBox()
-        self.checkbox.setFixedSize(18, 18)
-        self.checkbox.stateChanged.connect(self.on_selection_changed)
-        header_layout.addWidget(self.checkbox)
 
         # Role label with emoji
         role = "⚽ You" if self.is_user else "🦊 Assistant"
@@ -489,27 +484,9 @@ class MessageWidget(QFrame):
                 border-left: 4px solid {left_border_color};
                 border-radius: 8px;
             }}
-            MessageWidget[selected="true"] {{
-                border: 2px solid {NORD['nord8']};
-                border-left: 4px solid {left_border_color};
-            }}
             QLabel {{
                 color: {NORD['nord6']};
                 background: transparent;
-            }}
-            QCheckBox {{
-                background: transparent;
-            }}
-            QCheckBox::indicator {{
-                width: 16px;
-                height: 16px;
-                border-radius: 3px;
-                border: 2px solid {NORD['nord3']};
-                background-color: {NORD['nord0']};
-            }}
-            QCheckBox::indicator:checked {{
-                background-color: {NORD['nord8']};
-                border-color: {NORD['nord8']};
             }}
             QToolButton {{
                 background-color: {NORD['nord3']};
@@ -537,18 +514,6 @@ class MessageWidget(QFrame):
                 color: {NORD['nord4']};
             }}
         """)
-
-    def on_selection_changed(self, state):
-        """Handle selection state change."""
-        self.is_selected = (state == Qt.Checked)
-        self.setProperty("selected", "true" if self.is_selected else "false")
-        self.style().unpolish(self)
-        self.style().polish(self)
-        self.update()
-
-    def set_selected(self, selected):
-        """Set selection state."""
-        self.checkbox.setChecked(selected)
 
     def copy_message(self):
         """Copy this message to clipboard."""
@@ -675,10 +640,6 @@ class ChatArea(QWidget):
         QTimer.singleShot(100, lambda: message.adjust_height())
 
         return message
-
-    def get_selected_messages(self):
-        """Get all selected messages."""
-        return [msg for msg in self.messages if msg.is_selected]
 
     def copy_to_clipboard(self, text):
         """Copy text to clipboard."""
@@ -840,6 +801,29 @@ class MainWindow(QMainWindow):
         self.setWindowTitle("LLM Chat Interface")
         self.resize(900, 700)
 
+        # Menu bar
+        menubar = self.menuBar()
+
+        # File menu
+        file_menu = menubar.addMenu("File")
+
+        export_json_action = file_menu.addAction("Export to JSON...")
+        export_json_action.triggered.connect(self.export_to_json)
+
+        file_menu.addSeparator()
+
+        quit_action = file_menu.addAction("Quit")
+        quit_action.triggered.connect(self.close)
+
+        # Edit menu
+        edit_menu = menubar.addMenu("Edit")
+
+        copy_all_action = edit_menu.addAction("Copy All Messages")
+        copy_all_action.triggered.connect(self.copy_all)
+
+        clear_action = edit_menu.addAction("Clear Chat")
+        clear_action.triggered.connect(self.clear_chat)
+
         # Central widget
         central = QWidget()
         self.setCentralWidget(central)
@@ -848,34 +832,6 @@ class MainWindow(QMainWindow):
         main_layout = QVBoxLayout(central)
         main_layout.setContentsMargins(16, 16, 16, 16)
         main_layout.setSpacing(12)
-
-        # Top toolbar
-        toolbar_layout = QHBoxLayout()
-        toolbar_layout.setSpacing(8)
-
-        self.copy_selected_btn = QPushButton("Copy Selected")
-        self.copy_selected_btn.clicked.connect(self.copy_selected)
-        self.copy_selected_btn.setCursor(Qt.PointingHandCursor)
-        toolbar_layout.addWidget(self.copy_selected_btn)
-
-        self.copy_all_btn = QPushButton("Copy All")
-        self.copy_all_btn.clicked.connect(self.copy_all)
-        self.copy_all_btn.setCursor(Qt.PointingHandCursor)
-        toolbar_layout.addWidget(self.copy_all_btn)
-
-        self.select_all_btn = QPushButton("Select All")
-        self.select_all_btn.clicked.connect(self.select_all)
-        self.select_all_btn.setCursor(Qt.PointingHandCursor)
-        toolbar_layout.addWidget(self.select_all_btn)
-
-        self.deselect_all_btn = QPushButton("Deselect All")
-        self.deselect_all_btn.clicked.connect(self.deselect_all)
-        self.deselect_all_btn.setCursor(Qt.PointingHandCursor)
-        toolbar_layout.addWidget(self.deselect_all_btn)
-
-        toolbar_layout.addStretch()
-
-        main_layout.addLayout(toolbar_layout)
 
         # Scrollable chat area
         scroll = QScrollArea()
@@ -1243,20 +1199,6 @@ The interface prioritizes **showing content** over strict syntax enforcement, wh
         scrollbar = self.scroll_area.verticalScrollBar()
         scrollbar.setValue(scrollbar.maximum())
 
-    def copy_selected(self):
-        """Copy selected messages to clipboard."""
-        selected = self.chat_area.get_selected_messages()
-        if not selected:
-            return
-
-        text = "\n\n---\n\n".join([
-            f"{'User' if msg.is_user else 'Assistant'}: {msg.text}"
-            for msg in selected
-        ])
-
-        clipboard = QApplication.clipboard()
-        clipboard.setText(text)
-
     def copy_all(self):
         """Copy all messages to clipboard."""
         text = "\n\n---\n\n".join([
@@ -1267,15 +1209,46 @@ The interface prioritizes **showing content** over strict syntax enforcement, wh
         clipboard = QApplication.clipboard()
         clipboard.setText(text)
 
-    def select_all(self):
-        """Select all messages."""
-        for msg in self.chat_area.messages:
-            msg.set_selected(True)
+    def export_to_json(self):
+        """Export conversation to JSON file."""
+        filename, _ = QFileDialog.getSaveFileName(
+            self,
+            "Export Conversation",
+            "conversation.json",
+            "JSON Files (*.json)"
+        )
 
-    def deselect_all(self):
-        """Deselect all messages."""
+        if not filename:
+            return
+
+        messages = []
         for msg in self.chat_area.messages:
-            msg.set_selected(False)
+            message_data = {
+                "role": "user" if msg.is_user else "assistant",
+                "content": msg.text,
+                "timestamp": msg.timestamp.isoformat(),
+            }
+
+            if not msg.is_user:
+                if msg.thinking_text:
+                    message_data["thinking"] = msg.thinking_text
+                if msg.response_time:
+                    message_data["response_time"] = msg.response_time
+
+            messages.append(message_data)
+
+        try:
+            with open(filename, 'w', encoding='utf-8') as f:
+                json.dump({"messages": messages}, f, indent=2, ensure_ascii=False)
+        except Exception as e:
+            print(f"Error exporting to JSON: {e}")
+
+    def clear_chat(self):
+        """Clear all messages from the chat."""
+        # Remove all messages except the stretch
+        for msg in self.chat_area.messages[:]:
+            msg.deleteLater()
+        self.chat_area.messages.clear()
 
 
 def main():
