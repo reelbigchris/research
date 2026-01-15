@@ -110,10 +110,12 @@ class MarkdownRenderer:
                 background-color: {NORD['nord0']};
                 border-radius: 6px;
                 position: relative;
+                padding: 16px;
+                margin: 8px 0;
             }}
             .highlight pre {{
                 margin: 0;
-                padding: 16px 16px 16px 16px;
+                padding: 0;
                 background-color: {NORD['nord0']};
             }}
 
@@ -224,12 +226,15 @@ class MarkdownRenderer:
                     background-color: {NORD['nord1']};
                     border: 1px solid {NORD['nord3']};
                     border-radius: 6px;
-                    padding: 16px;
+                    padding: 20px;
+                    margin: 12px 0;
                     overflow-x: auto;
+                    line-height: 1.5;
                 }}
                 pre code {{
                     background-color: transparent;
                     padding: 0;
+                    margin: 0;
                 }}
                 blockquote {{
                     border-left: 3px solid {NORD['nord10']};
