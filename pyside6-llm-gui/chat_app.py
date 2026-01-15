@@ -963,7 +963,7 @@ class MarkdownRenderer:
         self.md = markdown.Markdown(extensions=['codehilite', 'tables'])
 
     def render(self, text):
-        """Render markdown to HTML with syntax highlighting."""
+        # Render markdown to HTML with syntax highlighting
         try:
             return self.md.convert(text)
         except Exception as e:
