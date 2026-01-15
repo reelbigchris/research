@@ -109,15 +109,16 @@ class MarkdownRenderer:
             .highlight {{
                 background-color: {NORD['nord0']};
                 border-radius: 6px;
-                margin: 8px 0;
+                margin: 12px 0;
+                border: 20px solid {NORD['nord0']};
                 display: block;
             }}
             .highlight pre {{
                 margin: 0;
-                padding: 20px;
+                padding: 0;
                 background-color: {NORD['nord0']};
                 display: block;
-                line-height: 1.4;
+                line-height: 1.5;
             }}
 
             /* Syntax highlighting colors */
@@ -225,12 +226,12 @@ class MarkdownRenderer:
                 }}
                 pre {{
                     background-color: {NORD['nord1']};
-                    border: 1px solid {NORD['nord3']};
+                    border: 20px solid {NORD['nord1']};
                     border-radius: 6px;
-                    padding: 20px;
                     margin: 12px 0;
                     overflow-x: auto;
                     line-height: 1.5;
+                    display: block;
                 }}
                 pre code {{
                     background-color: transparent;
