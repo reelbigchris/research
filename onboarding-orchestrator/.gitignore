@@ -1,0 +1,15 @@
+# Workspace outputs (don't commit generated research)
+workspace/
+
+# Local config (contains paths specific to your machine)
+config/config.sh
+
+# Logs
+*.log
+
+# Python
+__pycache__/
+*.pyc
+
+# Backup files
+*.backup.*

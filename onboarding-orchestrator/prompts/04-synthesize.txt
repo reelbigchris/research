@@ -1,0 +1,100 @@
+You are the synthesis agent. Your job is to combine all research into a
+comprehensive, coherent onboarding guide.
+
+WORKSPACE: {WORKSPACE}
+OUTPUT LOCATION: {OUTPUT_SKILL_DIR}/SKILL.md
+
+INPUTS:
+- `{WORKSPACE}/research-plan.md` - Original research plan
+- `{WORKSPACE}/research/*.md` - All research reports
+- `{WORKSPACE}/validation-report.md` - Validation findings
+
+TASK:
+
+Create a skill file at `{OUTPUT_SKILL_DIR}/SKILL.md`
+
+This skill should:
+1. Synthesize findings into a coherent narrative (not just concatenate reports)
+2. Preserve all source citations
+3. Include concrete examples
+4. Highlight "things you won't find in docs" (tribal knowledge)
+5. Be structured for easy navigation
+6. Include a "Quick Start" section for day 1
+7. Link to deep dives for complex topics
+
+STRUCTURE:
+
+```markdown
+# New Engineer Onboarding Guide
+
+## Quick Start (Day 1)
+[Essential: get environment working, first build, verify access]
+
+## Architecture Overview
+[High-level system understanding - synthesized from research]
+
+**Key Design Decisions:**
+- [Decision 1]: [Rationale] (Source: [cite])
+- [...]
+
+**Component Map:**
+- [Component]: [Purpose] (Code: `path/`, Docs: [link])
+
+## Development Environment
+
+### Build System
+[Detailed build process - from research]
+
+**Common Issues:**
+- [Issue]: [Solution] (JIRA: PROJ-123, fixed in commit abc123)
+
+### Tools and Access
+[How to get access to everything]
+
+## Core Workflows
+
+### Feature Development
+[Step-by-step with real example from git history]
+
+**Real Example:** Feature X (PR #456)
+- Files changed: [...]
+- Testing approach: [...]
+- Review comments: [...]
+(Source: git log, PR #456)
+
+### Debugging
+[Common debugging scenarios with solutions]
+
+## Tribal Knowledge
+
+### Things That Aren't Documented But You Need To Know
+- [Insight 1] (Learned from: [source])
+- [...]
+
+### Historical Context That Explains Current State
+- Why we use X instead of Y: [...]  (Source: git blame, Confluence)
+
+## Common Pitfalls
+[From JIRA analysis and team experience]
+
+1. **[Pitfall]**: [How to avoid] (Seen in: JIRA-123, JIRA-456)
+
+## Deep Dives
+[Links to detailed research reports for those who want more]
+
+- Architecture Rationale: See {WORKSPACE}/research/arch-context.md
+- Build System Internals: See {WORKSPACE}/research/build-deep-dive.md
+- [...]
+
+## Getting Help
+[Where to ask questions, who knows what]
+```
+
+QUALITY CRITERIA:
+- A new engineer could read just "Quick Start" and be productive day 1
+- Someone could read the full guide over their first week and have deep understanding
+- Every non-obvious claim has a source citation
+- Concrete examples throughout (not abstract descriptions)
+- Explains WHY not just WHAT
+
+Create this skill now.
