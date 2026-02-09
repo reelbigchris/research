@@ -1,0 +1,71 @@
+# Multi-rule session — demonstrates concurrent rule evaluation
+# Multiple independent rules watching different streams, all active simultaneously
+
+session:
+  name: "multi-rule-debug"
+  description: "Multiple concurrent rules watching installer and debug shell"
+
+  connections:
+    installer:
+      command: ["./installer", "--target", "192.168.1.100"]
+    debug_shell:
+      host: "192.168.1.100"
+      port: 1534
+
+  settings:
+    prompt_timeout: 10
+    command_timeout: 30
+    session_dir: "./sessions"
+
+  reactive:
+    rules:
+      - name: "bp_at_step_1"
+        watch:
+          stream: installer
+          pattern: "Step 1"
+        then:
+          - send_command:
+              stream: debug_shell
+              command: "bp 0x80001000"
+
+      - name: "bp_at_step_2"
+        watch:
+          stream: installer
+          pattern: "Step 2"
+        then:
+          - send_command:
+              stream: debug_shell
+              command: "bp 0x80002000"
+
+      - name: "bp_at_step_3"
+        watch:
+          stream: installer
+          pattern: "Step 3"
+        then:
+          - send_command:
+              stream: debug_shell
+              command: "bp 0x80003000"
+
+      - name: "handle_any_break"
+        watch:
+          stream: debug_shell
+          pattern: "Break at 0x8000[0-9a-fA-F]+"
+          is_breakpoint: true
+        once: false
+        then:
+          - send_command:
+              stream: debug_shell
+              command: "i"
+              capture_as: "task_list_at_break"
+          - send_command:
+              stream: debug_shell
+              command: "go"
+
+      - name: "done"
+        watch:
+          stream: installer
+          pattern: "Complete"
+        then:
+          - steady_state: true
+
+    reactive_timeout: 120

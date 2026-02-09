@@ -1,0 +1,89 @@
+# Breakpoint session — demonstrates cross-stream reactive coordination
+# Installer output triggers breakpoints, breakpoint hits trigger memory dumps
+
+session:
+  name: "breakpoint-debug"
+  description: "Debug firmware update with breakpoints at flash write"
+
+  connections:
+    command_interface:
+      command: ["./cmd_tool", "--device", "/dev/ttyUSB0"]
+    installer:
+      command: ["./installer", "--target", "192.168.1.100", "--image", "firmware.bin"]
+    debug_shell:
+      host: "192.168.1.100"
+      port: 1534
+
+  settings:
+    prompt_timeout: 10
+    command_timeout: 30
+    session_dir: "./sessions"
+
+  setup:
+    - run: "reset"
+      args: ["--hard"]
+      timeout: 30
+    - run: "load"
+      args: ["firmware", "/path/to/image.bin"]
+      timeout: 60
+
+  reactive:
+    rules:
+      - name: "set_breakpoints_on_code_load"
+        watch:
+          stream: installer
+          pattern: "Step 3: code loaded at 0x80004000"
+        then:
+          - send_command:
+              stream: debug_shell
+              command: "bp 0x80004000"
+          - send_command:
+              stream: debug_shell
+              command: "bp 0x80008000"
+
+      - name: "capture_post_validation_memory"
+        watch:
+          stream: installer
+          pattern: "Step 5: validation complete"
+        then:
+          - send_command:
+              stream: debug_shell
+              command: "md 0x80004000 256"
+              capture_as: "post_validation_memory"
+
+      - name: "handle_entry_breakpoint"
+        watch:
+          stream: debug_shell
+          pattern: "Break at 0x80004000"
+          is_breakpoint: true
+        then:
+          - send_command:
+              stream: debug_shell
+              command: "r r3"
+              capture_as: "r3_at_entry"
+          - send_command:
+              stream: debug_shell
+              command: "go"
+
+      - name: "handle_error"
+        watch:
+          stream: installer
+          pattern: "ERROR"
+        then:
+          - abort:
+              reason: "Installer reported an error"
+
+      - name: "installation_complete"
+        watch:
+          stream: installer
+          pattern: "Installation complete"
+        then:
+          - steady_state: true
+
+    reactive_timeout: 300
+
+  on_steady_state:
+    - send_command:
+        stream: debug_shell
+        command: "md 0x80000000 4096"
+        capture_as: "initial_memory_dump"

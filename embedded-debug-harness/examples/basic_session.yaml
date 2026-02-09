@@ -1,0 +1,45 @@
+# Basic session plan — minimal working example
+# Tests: setup phase, one reactive rule, steady state transition
+
+session:
+  name: "basic-test"
+  description: "Minimal session to verify harness operation"
+
+  connections:
+    command_interface:
+      command: ["echo", "OK"]
+    installer:
+      command: ["./installer", "--target", "192.168.1.100"]
+    debug_shell:
+      host: "192.168.1.100"
+      port: 1534
+
+  settings:
+    prompt_timeout: 10
+    command_timeout: 30
+    session_dir: "./sessions"
+
+  setup:
+    - run: "reset"
+      args: ["--hard"]
+      timeout: 30
+
+  reactive:
+    rules:
+      - name: "set_initial_breakpoint"
+        watch:
+          stream: installer
+          pattern: "Step 1.*Loading"
+        then:
+          - send_command:
+              stream: debug_shell
+              command: "bp 0x80004000"
+
+      - name: "installation_complete"
+        watch:
+          stream: installer
+          pattern: "Installation complete"
+        then:
+          - steady_state: true
+
+    reactive_timeout: 60
