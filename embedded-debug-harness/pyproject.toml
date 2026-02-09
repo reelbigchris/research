@@ -9,6 +9,7 @@ description = "Reactive orchestration harness for embedded firmware debugging se
 requires-python = ">=3.11"
 dependencies = [
     "pyyaml>=6.0",
+    "mcp>=1.0.0",
 ]
 
 [project.optional-dependencies]
@@ -19,6 +20,7 @@ dev = [
 
 [project.scripts]
 debug-harness = "debug_harness.cli:main"
+debug-harness-mcp = "debug_harness.mcp.server:cli"
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
